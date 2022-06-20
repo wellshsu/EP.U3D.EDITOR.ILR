@@ -1,0 +1,21 @@
+{
+    "name": "EP.U3D.EDITOR.ILR",
+    "rootNamespace": "",
+    "references": [
+        "EP.U3D.EDITOR.BASE",
+        "EP.U3D.LIBRARY.BASE",
+        "EP.U3D.LIBRARY.ILR",
+        "EP.U3D.RUNTIME.ILR"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
