@@ -308,7 +308,7 @@ namespace EP.U3D.EDITOR.ILR
             //添加语法树
             var Symbols = defineList;
 
-            List<SyntaxTree> codes = new List<SyntaxTree>();
+            List<Microsoft.CodeAnalysis.SyntaxTree> codes = new List<Microsoft.CodeAnalysis.SyntaxTree>();
             CSharpParseOptions opa = null;
             if (define)
             {

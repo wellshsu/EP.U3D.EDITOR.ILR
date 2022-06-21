@@ -42,7 +42,7 @@ namespace EP.U3D.EDITOR.ILR
             {
                 var adapter = AdapterTypes[i];
                 var f = Path.Combine(Constants.ILR_ADAPTER_PATH, adapter.Name + "Adapter.cs");
-                using (StreamWriter sw = new(f))
+                using (StreamWriter sw = new StreamWriter(f))
                 {
                     sw.WriteLine(ILRuntime.Runtime.Enviorment.CrossBindingCodeGenerator.GenerateCrossBindingAdapterCode(adapter, adapter.Namespace));
                 }
