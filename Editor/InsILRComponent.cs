@@ -26,9 +26,7 @@ namespace EP.U3D.EDITOR.ILR
         public string[] mILRScripts;
         private string mILRProjRoot;
         private int mSelectedScript = -1;
-        private Assembly mMainDLL;
-        private Assembly mUnityDLL;
-        private Assembly mUnityUIDLL;
+        private string mSearchText;
         private readonly Dictionary<string, string> mReflects = new Dictionary<string, string>();
         private readonly string mHelpText =
             "[Note] USE AssetManager.LoadAsset/LoadScene to load prefab.\n" +
@@ -37,9 +35,6 @@ namespace EP.U3D.EDITOR.ILR
         private void OnEnable()
         {
             mInstance = target as ILRComponent;
-            mMainDLL = Assembly.GetAssembly(Constants.CSHAP_DLL);
-            mUnityDLL = Assembly.GetAssembly(typeof(GameObject));
-            mUnityUIDLL = Assembly.GetAssembly(typeof(UnityEngine.UI.Image));
             mILRProjRoot = Constants.ILR_SCRIPT_WORKSPACE;
             List<string> scripts = new List<string>();
             CollectScripts(mILRProjRoot, scripts);
@@ -197,9 +192,20 @@ namespace EP.U3D.EDITOR.ILR
                             }
                             else
                             {
-                                Type ftype = mUnityDLL.GetType(field.Value);
-                                if (ftype == null) ftype = mUnityUIDLL.GetType(field.Value);
-                                if (ftype == null) ftype = mMainDLL.GetType(field.Value);
+                                Type ftype = null;
+                                for (int i = 0; i < Constants.COMPONENT_REFLECT_DLLS.Count; i++)
+                                {
+                                    var dll = Constants.COMPONENT_REFLECT_DLLS[i];
+                                    if (dll != null)
+                                    {
+                                        var t = dll.GetType(field.Value);
+                                        if (t != null)
+                                        {
+                                            ftype = t;
+                                            break;
+                                        }
+                                    }
+                                }
                                 if (ftype != null)
                                 {
                                     if (ftype.IsSubclassOf(typeof(UnityEngine.Object)))
@@ -234,12 +240,24 @@ namespace EP.U3D.EDITOR.ILR
             }
             else
             {
+                mSearchText = EditorGUILayout.TextField("Search Script", mSearchText);
+                if (!string.IsNullOrEmpty(mSearchText))
+                {
+                    for (int i = 0; i < mILRScripts.Length; i++)
+                    {
+                        var str = mILRScripts[i];
+                        if (str.IndexOf(mSearchText, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            if (GUILayout.Button(new GUIContent(str)))
+                            {
+                                mSelectedScript = i;
+                            }
+                        }
+                    }
+                }
+                GUILayout.Space(4);
                 GUILayout.BeginHorizontal();
                 mSelectedScript = EditorGUILayout.IntPopup(mSelectedScript, mILRScripts, null, GUILayout.Height(15));
-                if (mSelectedScript != -1)
-                {
-                    mInstance.FilePath = mILRScripts[mSelectedScript];
-                }
                 if (GUILayout.Button(new GUIContent("Edit"), GUILayout.Height(17), GUILayout.Width(50)))
                 {
                     string path = mILRScripts[mSelectedScript];
@@ -253,22 +271,30 @@ namespace EP.U3D.EDITOR.ILR
                 }
                 else
                 {
+                    mInstance.FilePath = mILRScripts[mSelectedScript];
                     mReflects.Clear();
                     var content = Helper.OpenText(Path.Combine(mILRProjRoot, mInstance.FilePath));
-                    var types = mMainDLL.GetTypes();
                     Type type = null;
-                    foreach (var t in types)
+                    for (int i = 0; i < Constants.COMPONENT_REFLECT_DLLS.Count; i++)
                     {
-                        if (content.Contains($"class {t.Name}") &&
-                            (string.IsNullOrEmpty(t.Namespace) || content.Contains($"namespace {t.Namespace}")))
+                        var dll = Constants.COMPONENT_REFLECT_DLLS[i];
+                        if (dll != null)
                         {
-                            type = t;
-                            break;
+                            var types = dll.GetTypes();
+                            foreach (var t in types)
+                            {
+                                if (content.Contains($"class {t.Name} ") &&
+                                    (string.IsNullOrEmpty(t.Namespace) || content.Contains($"namespace {t.Namespace}")))
+                                {
+                                    type = t;
+                                    break;
+                                }
+                            }
                         }
                     }
                     if (type == null)
                     {
-                        EditorGUILayout.HelpBox(Helper.StringFormat("Can not reflect type of {0} in maindll.", mInstance.FilePath), MessageType.Error);
+                        EditorGUILayout.HelpBox(Helper.StringFormat("Can not reflect type of {0} in any dlls.", mInstance.FilePath), MessageType.Error);
                     }
                     else
                     {
@@ -365,9 +391,20 @@ namespace EP.U3D.EDITOR.ILR
                                 }
                                 else
                                 {
-                                    Type ftype = mUnityDLL.GetType(field.Type);
-                                    if (ftype == null) ftype = mUnityUIDLL.GetType(field.Type);
-                                    if (ftype == null) ftype = mMainDLL.GetType(field.Type);
+                                    Type ftype = null;
+                                    for (int j = 0; j < Constants.COMPONENT_REFLECT_DLLS.Count; j++)
+                                    {
+                                        var dll = Constants.COMPONENT_REFLECT_DLLS[j];
+                                        if (dll != null)
+                                        {
+                                            var t = dll.GetType(field.Type);
+                                            if (t != null)
+                                            {
+                                                ftype = t;
+                                                break;
+                                            }
+                                        }
+                                    }
                                     if (ftype != null)
                                     {
                                         if (ftype.IsSubclassOf(typeof(UnityEngine.Object)))
