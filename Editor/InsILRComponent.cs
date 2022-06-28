@@ -20,13 +20,16 @@ using EP.U3D.EDITOR.BASE;
 namespace EP.U3D.EDITOR.ILR
 {
     [CustomEditor(typeof(ILRComponent))]
+    [CanEditMultipleObjects]
     public class InsILRComponent : Editor
     {
         private ILRComponent mInstance;
         public string[] mILRScripts;
         private string mILRProjRoot;
         private int mSelectedScript = -1;
+        private int mLastSelectedScript = -1;
         private string mSearchText;
+        private Type mType;
         private readonly Dictionary<string, string> mReflects = new Dictionary<string, string>();
         private readonly string mHelpText =
             "[Note] USE AssetManager.LoadAsset/LoadScene to load prefab.\n" +
@@ -41,6 +44,10 @@ namespace EP.U3D.EDITOR.ILR
             mILRScripts = scripts.ToArray();
 
             mSelectedScript = -1;
+            mLastSelectedScript = -1;
+            mType = null;
+            mReflects.Clear();
+
             if (string.IsNullOrEmpty(mInstance.FilePath) == false)
             {
                 for (int i = 0; i < mILRScripts.Length; i++)
@@ -70,7 +77,7 @@ namespace EP.U3D.EDITOR.ILR
                 foreach (var src in mILRScripts)
                 {
                     var content = Helper.OpenText(Path.Combine(mILRProjRoot, src));
-                    if (content.Contains($"class {name}") &&
+                    if (content.Contains($"class {name} ") &&
                        (string.IsNullOrEmpty(ns) || content.Contains($"namespace {ns}")))
                     {
                         mInstance.FilePath = src;
@@ -240,6 +247,7 @@ namespace EP.U3D.EDITOR.ILR
             }
             else
             {
+                mLastSelectedScript = mSelectedScript;
                 mSearchText = EditorGUILayout.TextField("Search Script", mSearchText);
                 if (!string.IsNullOrEmpty(mSearchText))
                 {
@@ -251,6 +259,7 @@ namespace EP.U3D.EDITOR.ILR
                             if (GUILayout.Button(new GUIContent(str)))
                             {
                                 mSelectedScript = i;
+                                mSearchText = "";
                             }
                         }
                     }
@@ -271,35 +280,41 @@ namespace EP.U3D.EDITOR.ILR
                 }
                 else
                 {
-                    mInstance.FilePath = mILRScripts[mSelectedScript];
-                    mReflects.Clear();
-                    var content = Helper.OpenText(Path.Combine(mILRProjRoot, mInstance.FilePath));
-                    Type type = null;
-                    for (int i = 0; i < Constants.COMPONENT_REFLECT_DLLS.Count; i++)
+                    if (mSelectedScript != mLastSelectedScript)
                     {
-                        var dll = Constants.COMPONENT_REFLECT_DLLS[i];
-                        if (dll != null)
+                        mType = null;
+                        mInstance.FilePath = mILRScripts[mSelectedScript];
+                    }
+                    if (mType == null)
+                    {
+                        var content = Helper.OpenText(Path.Combine(mILRProjRoot, mInstance.FilePath));
+                        for (int i = 0; i < Constants.COMPONENT_REFLECT_DLLS.Count; i++)
                         {
-                            var types = dll.GetTypes();
-                            foreach (var t in types)
+                            var dll = Constants.COMPONENT_REFLECT_DLLS[i];
+                            if (dll != null)
                             {
-                                if (content.Contains($"class {t.Name} ") &&
-                                    (string.IsNullOrEmpty(t.Namespace) || content.Contains($"namespace {t.Namespace}")))
+                                var types = dll.GetTypes();
+                                foreach (var t in types)
                                 {
-                                    type = t;
-                                    break;
+                                    if (content.Contains($"class {t.Name} ") &&
+                                        (string.IsNullOrEmpty(t.Namespace) || content.Contains($"namespace {t.Namespace}")))
+                                    {
+                                        mType = t;
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
-                    if (type == null)
+                    if (mType == null)
                     {
                         EditorGUILayout.HelpBox(Helper.StringFormat("Can not reflect type of {0} in any dlls.", mInstance.FilePath), MessageType.Error);
                     }
                     else
                     {
-                        mInstance.FullName = type.FullName;
-                        var ffields = type.GetFields();
+                        mReflects.Clear();
+                        mInstance.FullName = mType.FullName;
+                        var ffields = mType.GetFields();
                         foreach (var ffield in ffields)
                         {
                             if (ffield.GetCustomAttribute<NonSerializedAttribute>() != null) continue;
