@@ -221,6 +221,12 @@ namespace EP.U3D.EDITOR.ILR
                                         v = EditorGUILayout.ObjectField(field.Key, v, ftype, true);
                                         ffield.SetValue(target, v);
                                     }
+                                    else if (ftype.IsEnum)
+                                    {
+                                        Enum v = (Enum)ffield.GetValue(target);
+                                        v = EditorGUILayout.EnumPopup(field.Key, v);
+                                        ffield.SetValue(target, v);
+                                    }
                                     else if (ftype.IsSubclassOf(typeof(IILRComponent)))
                                     {
                                         IILRComponent v = (IILRComponent)ffield.GetValue(target);
@@ -425,6 +431,22 @@ namespace EP.U3D.EDITOR.ILR
                                         if (ftype.IsSubclassOf(typeof(UnityEngine.Object)))
                                         {
                                             field.OValue = EditorGUILayout.ObjectField(field.Key, field.OValue, ftype, true);
+                                        }
+                                        else if (ftype.IsEnum)
+                                        {
+                                            var enums = Enum.GetValues(ftype);
+                                            var c = BitConverter.ToInt32(field.BValue, 0);
+                                            Enum v = (Enum)enums.GetValue(0);
+                                            for (int j = 0; j < enums.Length; j++)
+                                            {
+                                                var e = enums.GetValue(j);
+                                                if ((int)e == c)
+                                                {
+                                                    v = (Enum)e;
+                                                }
+                                            }
+                                            v = EditorGUILayout.EnumPopup(field.Key, v);
+                                            field.BValue = BitConverter.GetBytes((int)(object)v);
                                         }
                                         else if (ftype.IsSubclassOf(typeof(IILRComponent)))
                                         {
