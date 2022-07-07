@@ -308,7 +308,7 @@ namespace EP.U3D.EDITOR.ILR
                                         }
                                         for (int i = 0; i < arr.Length; i++)
                                         {
-                                            DrawFieldInEditor("Element " + i, stype, arr.GetValue(i), out object fvalue, field.Key + "-" + i);
+                                            DrawFieldInRuntime("Element " + i, stype, arr.GetValue(i), out object fvalue, field.Key + "-" + i);
                                             arr.SetValue(fvalue, i);
                                         }
                                     }
@@ -358,7 +358,7 @@ namespace EP.U3D.EDITOR.ILR
                                         Array arr = toArray.Invoke(list, null) as Array;
                                         for (int i = 0; i < arr.Length; i++)
                                         {
-                                            DrawFieldInEditor("Element " + i, stype, arr.GetValue(i), out object fvalue, field.Key + "-" + i);
+                                            DrawFieldInRuntime("Element " + i, stype, arr.GetValue(i), out object fvalue, field.Key + "-" + i);
                                             arr.SetValue(fvalue, i);
                                         }
                                         clear.Invoke(list, null);
@@ -370,7 +370,7 @@ namespace EP.U3D.EDITOR.ILR
                             {
                                 try
                                 {
-                                    DrawFieldInEditor(field.Key, field.Value, ffield.GetValue(target), out object fvalue);
+                                    DrawFieldInRuntime(field.Key, field.Value, ffield.GetValue(target), out object fvalue);
                                     ffield.SetValue(target, fvalue);
                                 }
                                 catch (Exception)
@@ -600,7 +600,7 @@ namespace EP.U3D.EDITOR.ILR
                                             {
                                                 var bvalue = field.LBValue[j];
                                                 UnityEngine.Object ovalue = null;
-                                                DrawFieldInRuntime("Element " + j, field.Type, ref bvalue.Data, ref ovalue, field.Key + "-" + j);
+                                                DrawFieldInEditor("Element " + j, field.Type, ref bvalue.Data, ref ovalue, field.Key + "-" + j);
                                                 field.LBValue[j] = bvalue;
                                             }
                                         }
@@ -630,7 +630,7 @@ namespace EP.U3D.EDITOR.ILR
                                             {
                                                 byte[] bvalue = null;
                                                 UnityEngine.Object ovalue = field.LOValue[j];
-                                                DrawFieldInRuntime("Element " + j, field.Type, ref bvalue, ref ovalue, field.Key + "-" + j);
+                                                DrawFieldInEditor("Element " + j, field.Type, ref bvalue, ref ovalue, field.Key + "-" + j);
                                                 field.LOValue[j] = ovalue;
                                             }
                                         }
@@ -638,7 +638,7 @@ namespace EP.U3D.EDITOR.ILR
                                 }
                                 else
                                 {
-                                    DrawFieldInRuntime(field.Key, field.Type, ref field.BValue, ref field.OValue);
+                                    DrawFieldInEditor(field.Key, field.Type, ref field.BValue, ref field.OValue);
                                 }
                             }
                         }
@@ -676,7 +676,7 @@ namespace EP.U3D.EDITOR.ILR
             }
         }
 
-        private void DrawFieldInEditor(string key, string type, object ivalue, out object fvalue, string cname = "")
+        private void DrawFieldInRuntime(string key, string type, object ivalue, out object fvalue, string cname = "")
         {
             fvalue = null;
             GUILayout.BeginHorizontal();
@@ -791,7 +791,7 @@ namespace EP.U3D.EDITOR.ILR
             GUILayout.EndHorizontal();
         }
 
-        private void DrawFieldInRuntime(string key, string type, ref byte[] bvalue, ref UnityEngine.Object ovalue, string cname = "")
+        private void DrawFieldInEditor(string key, string type, ref byte[] bvalue, ref UnityEngine.Object ovalue, string cname = "")
         {
             GUILayout.BeginHorizontal();
             if (string.IsNullOrEmpty(cname) == false) GUI.SetNextControlName(cname);
