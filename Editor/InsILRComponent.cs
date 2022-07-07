@@ -773,15 +773,18 @@ namespace EP.U3D.EDITOR.ILR
                     {
                         IILRComponent v = (IILRComponent)ivalue;
                         ILRComponent lv = null;
-                        if (v != null)
+                        if (v != null) lv = v.gameObject.GetComponent<ILRComponent>();
+                        lv = EditorGUILayout.ObjectField(key, lv, typeof(ILRComponent), true) as ILRComponent;
+                        if (lv)
                         {
-                            lv = v.gameObject.GetComponent<ILRComponent>();
-                            if (lv)
+                            var vs = lv.GetComponents<ILRComponent>();
+                            for (int i = 0; i < vs.Length; i++)
                             {
-                                lv = EditorGUILayout.ObjectField(key, lv, typeof(ILRComponent), true) as ILRComponent;
-                                if (lv && lv.FullName == type)
+                                var t = vs[i];
+                                if (t.FullName == type)
                                 {
-                                    fvalue = lv.Object;
+                                    fvalue = t.Object;
+                                    break;
                                 }
                             }
                         }
@@ -897,14 +900,22 @@ namespace EP.U3D.EDITOR.ILR
                     {
                         ILRComponent v = ovalue as ILRComponent;
                         v = EditorGUILayout.ObjectField(key, v, typeof(ILRComponent), true) as ILRComponent;
-                        if (v && v.FullName == type)
+                        bool sig = false;
+                        if (v)
                         {
-                            ovalue = v;
+                            var vs = v.GetComponents<ILRComponent>();
+                            for (int i = 0; i < vs.Length; i++)
+                            {
+                                var t = vs[i];
+                                if (t.FullName == type)
+                                {
+                                    sig = true;
+                                    ovalue = t;
+                                    break;
+                                }
+                            }
                         }
-                        else
-                        {
-                            ovalue = null;
-                        }
+                        if (!sig) ovalue = null;
                     }
                 }
             }
