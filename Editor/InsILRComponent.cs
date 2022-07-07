@@ -31,6 +31,7 @@ namespace EP.U3D.EDITOR.ILR
         private string mSearchText;
         private Type mType;
         private readonly Dictionary<string, string> mReflects = new Dictionary<string, string>();
+        private readonly Dictionary<string, bool> mArrShow = new Dictionary<string, bool>();
         private readonly string mHelpText =
             "[Note] USE AssetManager.LoadAsset/LoadScene to load prefab.\n" +
             "USE UIHelper.AddComponent to add component dynamicly.\n";
@@ -47,6 +48,7 @@ namespace EP.U3D.EDITOR.ILR
             mLastSelectedScript = -1;
             mType = null;
             mReflects.Clear();
+            mArrShow.Clear();
 
             if (string.IsNullOrEmpty(mInstance.FilePath) == false)
             {
@@ -134,119 +136,250 @@ namespace EP.U3D.EDITOR.ILR
                         }
                         foreach (var field in mReflects)
                         {
-                            GUILayout.BeginHorizontal();
                             var ffield = type.GetField(field.Key);
                             if (ffield == null) continue;
-                            if (field.Value == "System.Int32")
+                            var stype = ffield.FieldType.FullName;
+                            var btarray = false;
+                            var btlist = false;
+                            if (ffield.FieldType.IsArray)
                             {
-                                int v = (int)ffield.GetValue(target);
-                                v = EditorGUILayout.IntField(field.Key, v);
-                                ffield.SetValue(target, v);
+                                btarray = true;
+                                stype = ffield.FieldType.GetElementType().FullName;
                             }
-                            else if (field.Value == "System.Int64")
+                            else if (ffield.FieldType.IsGenericType && typeof(System.Collections.IList).IsAssignableFrom(ffield.FieldType))
                             {
-                                long v = (long)ffield.GetValue(target);
-                                v = EditorGUILayout.LongField(field.Key, v);
-                                ffield.SetValue(target, v);
+                                // TOFIX[20220707]: script bundle模式下无法获取实际的ilr类型
+                                btlist = true;
+                                var temp = ffield.FieldType.GetGenericArguments()[0];
+                                stype = temp.FullName;
                             }
-                            else if (field.Value == "System.Single")
+                            if (btarray || btlist)
                             {
-                                float v = (float)ffield.GetValue(target);
-                                v = EditorGUILayout.FloatField(field.Key, v);
-                                ffield.SetValue(target, v);
-                            }
-                            else if (field.Value == "System.Double")
-                            {
-                                double v = (double)ffield.GetValue(target);
-                                v = EditorGUILayout.DoubleField(field.Key, v);
-                                ffield.SetValue(target, v);
-                            }
-                            else if (field.Value == "System.Boolean")
-                            {
-                                bool v = (bool)ffield.GetValue(target);
-                                v = EditorGUILayout.Toggle(field.Key, v);
-                                ffield.SetValue(target, v);
-                            }
-                            else if (field.Value == "UnityEngine.Vector2")
-                            {
-                                Vector2 v = (Vector2)ffield.GetValue(target);
-                                v = EditorGUILayout.Vector2Field(field.Key, v);
-                                ffield.SetValue(target, v);
-                            }
-                            else if (field.Value == "UnityEngine.Vector3")
-                            {
-                                Vector3 v = (Vector3)ffield.GetValue(target);
-                                v = EditorGUILayout.Vector3Field(field.Key, v);
-                                ffield.SetValue(target, v);
-                            }
-                            else if (field.Value == "UnityEngine.Vector4")
-                            {
-                                Vector4 v = (Vector4)ffield.GetValue(target);
-                                v = EditorGUILayout.Vector4Field(field.Key, v);
-                                ffield.SetValue(target, v);
-                            }
-                            else if (field.Value == "UnityEngine.Color")
-                            {
-                                Color v = (Color)ffield.GetValue(target);
-                                v = EditorGUILayout.ColorField(field.Key, v);
-                                ffield.SetValue(target, v);
-                            }
-                            else if (field.Value == "System.String")
-                            {
-                                string v = (string)ffield.GetValue(target);
-                                v = EditorGUILayout.TextField(field.Key, v);
-                                ffield.SetValue(target, v);
-                            }
-                            else
-                            {
-                                Type ftype = null;
-                                for (int i = 0; i < Constants.COMPONENT_REFLECT_DLLS.Count; i++)
+                                if (ffield.GetValue(target) == null) continue;
+                                bool sig = mArrShow.TryGetValue(field.Key, out var show);
+                                GUILayout.BeginHorizontal();
+                                show = EditorGUILayout.Foldout(show, field.Key);
+                                if (!sig) mArrShow.Add(field.Key, show);
+                                else mArrShow[field.Key] = show;
+                                var ocolor = GUI.color;
+                                GUI.color = Color.gray;
+                                if (GUILayout.Button("-", GUILayout.Width(20), GUILayout.Height(15)))
                                 {
-                                    var dll = Constants.COMPONENT_REFLECT_DLLS[i];
-                                    if (dll != null)
+                                    var label = GUI.GetNameOfFocusedControl();
+                                    var index = -1;
+                                    if (!string.IsNullOrEmpty(label))
                                     {
-                                        var t = dll.GetType(field.Value);
-                                        if (t != null)
+                                        var strs = label.Split("-");
+                                        if (strs.Length == 2 && strs[0] == field.Key)
                                         {
-                                            ftype = t;
-                                            break;
+                                            int.TryParse(strs[1], out index);
                                         }
                                     }
-                                }
-                                if (ftype != null)
-                                {
-                                    if (ftype.IsSubclassOf(typeof(UnityEngine.Object)))
+                                    if (btarray)
                                     {
-                                        UnityEngine.Object v = (UnityEngine.Object)ffield.GetValue(target);
-                                        v = EditorGUILayout.ObjectField(field.Key, v, ftype, true);
-                                        ffield.SetValue(target, v);
-                                    }
-                                    else if (ftype.IsEnum)
-                                    {
-                                        Enum v = (Enum)ffield.GetValue(target);
-                                        v = EditorGUILayout.EnumPopup(field.Key, v);
-                                        ffield.SetValue(target, v);
-                                    }
-                                    else if (ftype.IsSubclassOf(typeof(IILRComponent)))
-                                    {
-                                        IILRComponent v = (IILRComponent)ffield.GetValue(target);
-                                        ILRComponent lv = null;
-                                        if (v != null)
+                                        Array arr = ffield.GetValue(target) as Array;
+                                        if (index == -1) index = arr.Length - 1;
+                                        if (index >= 0 && index < arr.Length)
                                         {
-                                            lv = v.gameObject.GetComponent<ILRComponent>();
-                                            if (lv)
+                                            Array narr;
+                                            var ntype = ffield.FieldType.GetElementType();
+                                            if (ntype is ILRuntime.Reflection.ILRuntimeType itype)
                                             {
-                                                lv = EditorGUILayout.ObjectField(field.Key, lv, typeof(ILRComponent), true) as ILRComponent;
-                                                if (lv && lv.FullName == field.Value)
+                                                narr = Array.CreateInstance(itype.ILType.TypeForCLR, arr.Length - 1);
+                                            }
+                                            else
+                                            {
+                                                narr = Array.CreateInstance(ntype, arr.Length - 1);
+                                            }
+                                            for (int i = 0; i < arr.Length; i++)
+                                            {
+                                                if (i == index) continue;
+                                                if (arr.GetValue(i) != null)
                                                 {
-                                                    ffield.SetValue(target, lv.Object);
+                                                    narr.SetValue(arr.GetValue(i), i < index ? i : i - 1);
+                                                }
+                                            }
+                                            ffield.SetValue(target, narr);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        object list = ffield.GetValue(target);
+                                        PropertyInfo count = list.GetType().GetProperty("Count");
+                                        MethodInfo removeAt = list.GetType().GetMethod("RemoveAt");
+                                        int ccount = (int)count.GetValue(list);
+                                        if (index == -1) index = ccount - 1;
+                                        if (index >= 0 && index < ccount) removeAt.Invoke(list, new object[] { index });
+                                    }
+                                }
+                                if (GUILayout.Button("+", GUILayout.Width(20), GUILayout.Height(15)))
+                                {
+                                    var label = GUI.GetNameOfFocusedControl();
+                                    var index = -1;
+                                    if (!string.IsNullOrEmpty(label))
+                                    {
+                                        var strs = label.Split("-");
+                                        if (strs.Length == 2 && strs[0] == field.Key)
+                                        {
+                                            int.TryParse(strs[1], out index);
+                                        }
+                                    }
+                                    if (btarray)
+                                    {
+                                        Array arr = ffield.GetValue(target) as Array;
+                                        if (index == -1) index = arr.Length + 1;
+                                        Array narr;
+                                        var ntype = ffield.FieldType.GetElementType();
+                                        if (ntype is ILRuntime.Reflection.ILRuntimeType itype)
+                                        {
+                                            narr = Array.CreateInstance(itype.ILType.TypeForCLR, arr.Length + 1);
+                                        }
+                                        else
+                                        {
+                                            narr = Array.CreateInstance(ntype, arr.Length + 1);
+                                        }
+                                        for (int i = 0; i < arr.Length; i++)
+                                        {
+                                            if (arr.GetValue(i) != null)
+                                            {
+                                                narr.SetValue(arr.GetValue(i), i < index ? i : i + 1);
+                                            }
+                                        }
+                                        ffield.SetValue(target, narr);
+                                    }
+                                    else
+                                    {
+                                        object list = ffield.GetValue(target);
+                                        PropertyInfo count = list.GetType().GetProperty("Count");
+                                        MethodInfo insert = list.GetType().GetMethod("Insert");
+                                        int ccount = (int)count.GetValue(list);
+                                        if (index == -1) index = ccount;
+                                        insert.Invoke(list, new object[] { index < 0 ? 0 : index, null });
+                                    }
+                                }
+                                GUI.color = ocolor;
+                                var olength = 0;
+                                if (btarray)
+                                {
+                                    Array arr = ffield.GetValue(target) as Array;
+                                    olength = arr.Length;
+                                }
+                                else
+                                {
+                                    object list = ffield.GetValue(target);
+                                    PropertyInfo count = list.GetType().GetProperty("Count");
+                                    olength = (int)count.GetValue(list);
+                                }
+                                var length = EditorGUILayout.DelayedIntField(olength, GUILayout.Width(50));
+                                GUILayout.EndHorizontal();
+                                if (btarray)
+                                {
+                                    if (length >= 0 && length != olength)
+                                    {
+                                        Array arr = ffield.GetValue(target) as Array;
+                                        Array narr;
+                                        var ntype = ffield.FieldType.GetElementType();
+                                        if (ntype is ILRuntime.Reflection.ILRuntimeType itype)
+                                        {
+                                            narr = Array.CreateInstance(itype.ILType.TypeForCLR, length);
+                                        }
+                                        else
+                                        {
+                                            narr = Array.CreateInstance(ntype, length);
+                                        }
+                                        for (int j = 0; j < length; j++)
+                                        {
+                                            if (arr.Length > j)
+                                            {
+                                                if (arr.GetValue(j) != null)
+                                                {
+                                                    narr.SetValue(arr.GetValue(j), j);
                                                 }
                                             }
                                         }
+                                        ffield.SetValue(target, narr);
+                                    }
+                                    if (show)
+                                    {
+                                        Array arr = ffield.GetValue(target) as Array;
+                                        if (arr.Length == 0)
+                                        {
+                                            EditorGUILayout.HelpBox("List is empty.", MessageType.Info);
+                                        }
+                                        for (int i = 0; i < arr.Length; i++)
+                                        {
+                                            DrawFieldInEditor("Element " + i, stype, arr.GetValue(i), out object fvalue, field.Key + "-" + i);
+                                            arr.SetValue(fvalue, i);
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    if (length >= 0 && length != olength)
+                                    {
+                                        object list = ffield.GetValue(target);
+                                        object nlist;
+                                        Type ltype = typeof(List<>);
+                                        var ntype = ffield.FieldType.GetGenericArguments()[0];
+                                        if (ntype is ILRuntime.Reflection.ILRuntimeType itype)
+                                        {
+                                            Type nntype = ltype.MakeGenericType(new Type[] { itype.ILType.TypeForCLR });
+                                            nlist = Activator.CreateInstance(nntype);
+                                        }
+                                        else
+                                        {
+                                            Type nntype = ltype.MakeGenericType(new Type[] { ntype });
+                                            nlist = Activator.CreateInstance(nntype);
+                                        }
+                                        MethodInfo toArray = list.GetType().GetMethod("ToArray");
+                                        MethodInfo add = nlist.GetType().GetMethod("Add");
+                                        Array arr = toArray.Invoke(list, null) as Array;
+                                        for (int j = 0; j < length; j++)
+                                        {
+                                            if (arr.Length > j)
+                                            {
+                                                add.Invoke(nlist, new object[] { arr.GetValue(j) });
+                                            }
+                                        }
+                                        ffield.SetValue(target, nlist);
+                                    }
+                                    if (show)
+                                    {
+                                        object list = ffield.GetValue(target);
+                                        PropertyInfo count = list.GetType().GetProperty("Count");
+                                        int ccount = (int)count.GetValue(list);
+                                        if (ccount == 0)
+                                        {
+                                            EditorGUILayout.HelpBox("List is empty.", MessageType.Info);
+                                        }
+                                        MethodInfo toArray = list.GetType().GetMethod("ToArray");
+                                        MethodInfo clear = list.GetType().GetMethod("Clear");
+                                        MethodInfo addRange = list.GetType().GetMethod("AddRange");
+                                        Array arr = toArray.Invoke(list, null) as Array;
+                                        for (int i = 0; i < arr.Length; i++)
+                                        {
+                                            DrawFieldInEditor("Element " + i, stype, arr.GetValue(i), out object fvalue, field.Key + "-" + i);
+                                            arr.SetValue(fvalue, i);
+                                        }
+                                        clear.Invoke(list, null);
+                                        addRange.Invoke(list, new object[] { arr });
                                     }
                                 }
                             }
-                            GUILayout.EndHorizontal();
+                            else
+                            {
+                                try
+                                {
+                                    DrawFieldInEditor(field.Key, field.Value, ffield.GetValue(target), out object fvalue);
+                                    ffield.SetValue(target, fvalue);
+                                }
+                                catch (Exception)
+                                {
+                                    Helper.LogError(field.Key);
+                                    throw;
+                                }
+
+                            }
                         }
                     }
                 }
@@ -335,8 +468,36 @@ namespace EP.U3D.EDITOR.ILR
                                     ret.Key = ffield.Name;
                                     mInstance.Fields.Add(ret);
                                 }
-                                if (ffield.FieldType.FullName != ret.Type) ret.Reset();
-                                ret.Type = ffield.FieldType.FullName;
+                                var type = ffield.FieldType.FullName;
+                                var btarray = false;
+                                var btlist = false;
+                                var blbvalue = false;
+                                if (ffield.FieldType.IsArray)
+                                {
+                                    btarray = true;
+                                    type = ffield.FieldType.GetElementType().FullName;
+                                    var temp = ffield.FieldType.Assembly.GetType(type);
+                                    blbvalue = temp.IsEnum;
+                                }
+                                else if (ffield.FieldType.IsGenericType && typeof(System.Collections.IList).IsAssignableFrom(ffield.FieldType))
+                                {
+                                    btlist = true;
+                                    var temp = ffield.FieldType.GetGenericArguments()[0];
+                                    type = temp.FullName;
+                                    blbvalue = temp.IsEnum;
+                                }
+                                if (type != ret.Type) ret.Reset();
+                                if (blbvalue == false)
+                                {
+                                    blbvalue = type == "System.Int32" || type == "System.Int64" || type == "System.Single" ||
+                                         type == "System.Double" || type == "System.Boolean" || type == "UnityEngine.Vector2" ||
+                                         type == "UnityEngine.Vector3" || type == "UnityEngine.Vector4" || type == "UnityEngine.Color" ||
+                                         type == "System.String" || ffield.FieldType.IsEnum;
+                                }
+                                ret.Type = type;
+                                ret.BTArray = btarray;
+                                ret.BTList = btlist;
+                                ret.BLBValue = blbvalue;
                             }
                         }
                         for (int i = 0; i < mInstance.Fields.Count;)
@@ -349,121 +510,136 @@ namespace EP.U3D.EDITOR.ILR
                             else
                             {
                                 i++;
-                                GUILayout.BeginHorizontal();
-                                if (field.Type == "System.Int32")
+                                if (field.BTArray || field.BTList)
                                 {
-                                    int v = BitConverter.ToInt32(field.BValue, 0);
-                                    v = EditorGUILayout.IntField(field.Key, v);
-                                    field.BValue = BitConverter.GetBytes(v);
-                                }
-                                else if (field.Type == "System.Int64")
-                                {
-                                    long v = BitConverter.ToInt64(field.BValue, 0);
-                                    v = EditorGUILayout.LongField(field.Key, v);
-                                    field.BValue = BitConverter.GetBytes(v);
-                                }
-                                else if (field.Type == "System.Single")
-                                {
-                                    float v = BitConverter.ToSingle(field.BValue, 0);
-                                    v = EditorGUILayout.FloatField(field.Key, v);
-                                    field.BValue = BitConverter.GetBytes(v);
-                                }
-                                else if (field.Type == "System.Double")
-                                {
-                                    double v = BitConverter.ToDouble(field.BValue, 0);
-                                    v = EditorGUILayout.DoubleField(field.Key, v);
-                                    field.BValue = BitConverter.GetBytes(v);
-                                }
-                                else if (field.Type == "System.Boolean")
-                                {
-                                    bool v = BitConverter.ToBoolean(field.BValue, 0);
-                                    v = EditorGUILayout.Toggle(field.Key, v);
-                                    field.BValue = BitConverter.GetBytes(v);
-                                }
-                                else if (field.Type == "UnityEngine.Vector2")
-                                {
-                                    Vector2 v = Helper.ByteToStruct<Vector2>(field.BValue);
-                                    v = EditorGUILayout.Vector2Field(field.Key, v);
-                                    field.BValue = Helper.StructToByte(v);
-                                }
-                                else if (field.Type == "UnityEngine.Vector3")
-                                {
-                                    Vector3 v = Helper.ByteToStruct<Vector3>(field.BValue);
-                                    v = EditorGUILayout.Vector3Field(field.Key, v);
-                                    field.BValue = Helper.StructToByte(v);
-                                }
-                                else if (field.Type == "UnityEngine.Vector4")
-                                {
-                                    Vector4 v = Helper.ByteToStruct<Vector4>(field.BValue);
-                                    v = EditorGUILayout.Vector4Field(field.Key, v);
-                                    field.BValue = Helper.StructToByte(v);
-                                }
-                                else if (field.Type == "UnityEngine.Color")
-                                {
-                                    Color v = Helper.ByteToStruct<Color>(field.BValue);
-                                    v = EditorGUILayout.ColorField(field.Key, v);
-                                    field.BValue = Helper.StructToByte(v);
-                                }
-                                else if (field.Type == "System.String")
-                                {
-                                    string v = Encoding.UTF8.GetString(field.BValue);
-                                    v = EditorGUILayout.TextField(field.Key, v);
-                                    field.BValue = Encoding.UTF8.GetBytes(v);
+                                    if (field.BLBValue)
+                                    {
+                                        if (field.LBValue == null) field.LBValue = new List<ILRComponent.Byte>();
+                                    }
+                                    else
+                                    {
+                                        if (field.LOValue == null) field.LOValue = new List<UnityEngine.Object>();
+                                    }
+                                    GUILayout.BeginHorizontal();
+                                    field.BLShow = EditorGUILayout.Foldout(field.BLShow, field.Key);
+                                    var ocolor = GUI.color;
+                                    GUI.color = Color.gray;
+                                    if (GUILayout.Button("-", GUILayout.Width(20), GUILayout.Height(15)))
+                                    {
+                                        var label = GUI.GetNameOfFocusedControl();
+                                        var index = -1;
+                                        if (!string.IsNullOrEmpty(label))
+                                        {
+                                            var strs = label.Split("-");
+                                            if (strs.Length == 2 && strs[0] == field.Key)
+                                            {
+                                                int.TryParse(strs[1], out index);
+                                            }
+                                        }
+                                        if (field.BLBValue)
+                                        {
+                                            if (index == -1) index = field.LBValue.Count - 1;
+                                            if (index >= 0 && index < field.LBValue.Count) field.LBValue.RemoveAt(index);
+                                        }
+                                        else
+                                        {
+                                            if (index == -1) index = field.LOValue.Count - 1;
+                                            if (index >= 0 && index < field.LOValue.Count) field.LOValue.RemoveAt(index);
+                                        }
+                                    }
+                                    if (GUILayout.Button("+", GUILayout.Width(20), GUILayout.Height(15)))
+                                    {
+                                        var label = GUI.GetNameOfFocusedControl();
+                                        var index = -1;
+                                        if (!string.IsNullOrEmpty(label))
+                                        {
+                                            var strs = label.Split("-");
+                                            if (strs.Length == 2 && strs[0] == field.Key)
+                                            {
+                                                int.TryParse(strs[1], out index);
+                                            }
+                                        }
+                                        if (field.BLBValue)
+                                        {
+                                            if (index == -1) index = field.LBValue.Count;
+                                            field.LBValue.Insert(index < 0 ? 0 : index, new ILRComponent.Byte(new byte[16]));
+                                        }
+                                        else
+                                        {
+                                            if (index == -1) index = field.LOValue.Count;
+                                            field.LOValue.Insert(index < 0 ? 0 : index, null);
+                                        }
+                                    }
+                                    GUI.color = ocolor;
+                                    var length = field.BLBValue ?
+                                        EditorGUILayout.DelayedIntField(field.LBValue.Count, GUILayout.Width(50)) :
+                                        EditorGUILayout.DelayedIntField(field.LOValue.Count, GUILayout.Width(50));
+                                    GUILayout.EndHorizontal();
+                                    if (field.BLBValue)
+                                    {
+                                        if (length >= 0)
+                                        {
+                                            if (length != field.LBValue.Count)
+                                            {
+                                                var narr = new List<ILRComponent.Byte>(length);
+                                                for (int j = 0; j < length; j++)
+                                                {
+                                                    if (field.LBValue.Count > j) narr.Add(field.LBValue[j]);
+                                                    else narr.Add(new ILRComponent.Byte(new byte[16]));
+                                                }
+                                                field.LBValue = narr;
+                                            }
+                                        }
+                                        if (field.BLShow)
+                                        {
+                                            if (field.LBValue.Count == 0)
+                                            {
+                                                EditorGUILayout.HelpBox("List is empty.", MessageType.Info);
+                                            }
+                                            for (int j = 0; j < field.LBValue.Count; j++)
+                                            {
+                                                var bvalue = field.LBValue[j];
+                                                UnityEngine.Object ovalue = null;
+                                                DrawFieldInRuntime("Element " + j, field.Type, ref bvalue.Data, ref ovalue, field.Key + "-" + j);
+                                                field.LBValue[j] = bvalue;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (length >= 0)
+                                        {
+                                            if (length != field.LOValue.Count)
+                                            {
+                                                var narr = new List<UnityEngine.Object>(length);
+                                                for (int j = 0; j < length; j++)
+                                                {
+                                                    if (field.LOValue.Count > j) narr.Add(field.LOValue[j]);
+                                                    else narr.Add(null);
+                                                }
+                                                field.LOValue = narr;
+                                            }
+                                        }
+                                        if (field.BLShow)
+                                        {
+                                            if (field.LOValue.Count == 0)
+                                            {
+                                                EditorGUILayout.HelpBox("List is empty.", MessageType.Info);
+                                            }
+                                            for (int j = 0; j < field.LOValue.Count; j++)
+                                            {
+                                                byte[] bvalue = null;
+                                                UnityEngine.Object ovalue = field.LOValue[j];
+                                                DrawFieldInRuntime("Element " + j, field.Type, ref bvalue, ref ovalue, field.Key + "-" + j);
+                                                field.LOValue[j] = ovalue;
+                                            }
+                                        }
+                                    }
                                 }
                                 else
                                 {
-                                    Type ftype = null;
-                                    for (int j = 0; j < Constants.COMPONENT_REFLECT_DLLS.Count; j++)
-                                    {
-                                        var dll = Constants.COMPONENT_REFLECT_DLLS[j];
-                                        if (dll != null)
-                                        {
-                                            var t = dll.GetType(field.Type);
-                                            if (t != null)
-                                            {
-                                                ftype = t;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if (ftype != null)
-                                    {
-                                        if (ftype.IsSubclassOf(typeof(UnityEngine.Object)))
-                                        {
-                                            field.OValue = EditorGUILayout.ObjectField(field.Key, field.OValue, ftype, true);
-                                        }
-                                        else if (ftype.IsEnum)
-                                        {
-                                            var enums = Enum.GetValues(ftype);
-                                            var c = BitConverter.ToInt32(field.BValue, 0);
-                                            Enum v = (Enum)enums.GetValue(0);
-                                            for (int j = 0; j < enums.Length; j++)
-                                            {
-                                                var e = enums.GetValue(j);
-                                                if ((int)e == c)
-                                                {
-                                                    v = (Enum)e;
-                                                }
-                                            }
-                                            v = EditorGUILayout.EnumPopup(field.Key, v);
-                                            field.BValue = BitConverter.GetBytes((int)(object)v);
-                                        }
-                                        else if (ftype.IsSubclassOf(typeof(IILRComponent)))
-                                        {
-                                            ILRComponent v = field.OValue as ILRComponent;
-                                            v = EditorGUILayout.ObjectField(field.Key, v, typeof(ILRComponent), true) as ILRComponent;
-                                            if (v && v.FullName == field.Type)
-                                            {
-                                                field.OValue = v;
-                                            }
-                                            else
-                                            {
-                                                field.OValue = null;
-                                            }
-                                        }
-                                    }
+                                    DrawFieldInRuntime(field.Key, field.Type, ref field.BValue, ref field.OValue);
                                 }
-                                GUILayout.EndHorizontal();
                             }
                         }
                     }
@@ -498,6 +674,241 @@ namespace EP.U3D.EDITOR.ILR
                 directory = directory.Substring(mILRProjRoot.Length);
                 outfiles.Add(directory);
             }
+        }
+
+        private void DrawFieldInEditor(string key, string type, object ivalue, out object fvalue, string cname = "")
+        {
+            fvalue = null;
+            GUILayout.BeginHorizontal();
+            if (string.IsNullOrEmpty(cname) == false) GUI.SetNextControlName(cname);
+            if (type == "System.Int32")
+            {
+                int v = (int)ivalue;
+                fvalue = EditorGUILayout.IntField(key, v);
+            }
+            else if (type == "System.Int64")
+            {
+                long v = (long)ivalue;
+                fvalue = EditorGUILayout.LongField(key, v);
+            }
+            else if (type == "System.Single")
+            {
+                float v = (float)ivalue;
+                fvalue = EditorGUILayout.FloatField(key, v);
+            }
+            else if (type == "System.Double")
+            {
+                double v = (double)ivalue;
+                fvalue = EditorGUILayout.DoubleField(key, v);
+            }
+            else if (type == "System.Boolean")
+            {
+                bool v = (bool)ivalue;
+                fvalue = EditorGUILayout.Toggle(key, v);
+            }
+            else if (type == "UnityEngine.Vector2")
+            {
+                Vector2 v = (Vector2)ivalue;
+                fvalue = EditorGUILayout.Vector2Field(key, v);
+            }
+            else if (type == "UnityEngine.Vector3")
+            {
+                Vector3 v = (Vector3)ivalue;
+                fvalue = EditorGUILayout.Vector3Field(key, v);
+            }
+            else if (type == "UnityEngine.Vector4")
+            {
+                Vector4 v = (Vector4)ivalue;
+                fvalue = EditorGUILayout.Vector4Field(key, v);
+            }
+            else if (type == "UnityEngine.Color")
+            {
+                Color v = (Color)ivalue;
+                fvalue = EditorGUILayout.ColorField(key, v);
+            }
+            else if (type == "System.String")
+            {
+                string v = (string)ivalue;
+                fvalue = EditorGUILayout.TextField(key, v);
+            }
+            else
+            {
+                Type ftype = null;
+                for (int i = 0; i < Constants.COMPONENT_REFLECT_DLLS.Count; i++)
+                {
+                    var dll = Constants.COMPONENT_REFLECT_DLLS[i];
+                    if (dll != null)
+                    {
+                        var t = dll.GetType(type);
+                        if (t != null)
+                        {
+                            ftype = t;
+                            break;
+                        }
+                    }
+                }
+                if (ftype != null)
+                {
+                    if (ftype.IsSubclassOf(typeof(UnityEngine.Object)))
+                    {
+                        UnityEngine.Object v = (UnityEngine.Object)ivalue;
+                        fvalue = EditorGUILayout.ObjectField(key, v, ftype, true);
+                    }
+                    else if (ftype.IsEnum)
+                    {
+                        var enums = Enum.GetValues(ftype);
+                        var c = (int)ivalue;
+                        Enum v = (Enum)enums.GetValue(0);
+                        for (int j = 0; j < enums.Length; j++)
+                        {
+                            var e = enums.GetValue(j);
+                            if ((int)e == c)
+                            {
+                                v = (Enum)e;
+                            }
+                        }
+                        fvalue = EditorGUILayout.EnumPopup(key, v);
+                    }
+                    else if (ftype.IsSubclassOf(typeof(IILRComponent)))
+                    {
+                        IILRComponent v = (IILRComponent)ivalue;
+                        ILRComponent lv = null;
+                        if (v != null)
+                        {
+                            lv = v.gameObject.GetComponent<ILRComponent>();
+                            if (lv)
+                            {
+                                lv = EditorGUILayout.ObjectField(key, lv, typeof(ILRComponent), true) as ILRComponent;
+                                if (lv && lv.FullName == type)
+                                {
+                                    fvalue = lv.Object;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            GUILayout.EndHorizontal();
+        }
+
+        private void DrawFieldInRuntime(string key, string type, ref byte[] bvalue, ref UnityEngine.Object ovalue, string cname = "")
+        {
+            GUILayout.BeginHorizontal();
+            if (string.IsNullOrEmpty(cname) == false) GUI.SetNextControlName(cname);
+            if (type == "System.Int32")
+            {
+                int v = BitConverter.ToInt32(bvalue, 0);
+                v = EditorGUILayout.IntField(key, v);
+                bvalue = BitConverter.GetBytes(v);
+            }
+            else if (type == "System.Int64")
+            {
+                long v = BitConverter.ToInt64(bvalue, 0);
+                v = EditorGUILayout.LongField(key, v);
+                bvalue = BitConverter.GetBytes(v);
+            }
+            else if (type == "System.Single")
+            {
+                float v = BitConverter.ToSingle(bvalue, 0);
+                v = EditorGUILayout.FloatField(key, v);
+                bvalue = BitConverter.GetBytes(v);
+            }
+            else if (type == "System.Double")
+            {
+                double v = BitConverter.ToDouble(bvalue, 0);
+                v = EditorGUILayout.DoubleField(key, v);
+                bvalue = BitConverter.GetBytes(v);
+            }
+            else if (type == "System.Boolean")
+            {
+                bool v = BitConverter.ToBoolean(bvalue, 0);
+                v = EditorGUILayout.Toggle(key, v);
+                bvalue = BitConverter.GetBytes(v);
+            }
+            else if (type == "UnityEngine.Vector2")
+            {
+                Vector2 v = Helper.ByteToStruct<Vector2>(bvalue);
+                v = EditorGUILayout.Vector2Field(key, v);
+                bvalue = Helper.StructToByte(v);
+            }
+            else if (type == "UnityEngine.Vector3")
+            {
+                Vector3 v = Helper.ByteToStruct<Vector3>(bvalue);
+                v = EditorGUILayout.Vector3Field(key, v);
+                bvalue = Helper.StructToByte(v);
+            }
+            else if (type == "UnityEngine.Vector4")
+            {
+                Vector4 v = Helper.ByteToStruct<Vector4>(bvalue);
+                v = EditorGUILayout.Vector4Field(key, v);
+                bvalue = Helper.StructToByte(v);
+            }
+            else if (type == "UnityEngine.Color")
+            {
+                Color v = Helper.ByteToStruct<Color>(bvalue);
+                v = EditorGUILayout.ColorField(key, v);
+                bvalue = Helper.StructToByte(v);
+            }
+            else if (type == "System.String")
+            {
+                string v = Encoding.UTF8.GetString(bvalue);
+                v = EditorGUILayout.TextField(key, v);
+                bvalue = Encoding.UTF8.GetBytes(v);
+            }
+            else
+            {
+                Type ftype = null;
+                for (int j = 0; j < Constants.COMPONENT_REFLECT_DLLS.Count; j++)
+                {
+                    var dll = Constants.COMPONENT_REFLECT_DLLS[j];
+                    if (dll != null)
+                    {
+                        var t = dll.GetType(type);
+                        if (t != null)
+                        {
+                            ftype = t;
+                            break;
+                        }
+                    }
+                }
+                if (ftype != null)
+                {
+                    if (ftype.IsSubclassOf(typeof(UnityEngine.Object)))
+                    {
+                        ovalue = EditorGUILayout.ObjectField(key, ovalue, ftype, true);
+                    }
+                    else if (ftype.IsEnum)
+                    {
+                        var enums = Enum.GetValues(ftype);
+                        var c = BitConverter.ToInt32(bvalue, 0);
+                        Enum v = (Enum)enums.GetValue(0);
+                        for (int j = 0; j < enums.Length; j++)
+                        {
+                            var e = enums.GetValue(j);
+                            if ((int)e == c)
+                            {
+                                v = (Enum)e;
+                            }
+                        }
+                        v = EditorGUILayout.EnumPopup(key, v);
+                        bvalue = BitConverter.GetBytes((int)(object)v);
+                    }
+                    else if (ftype.IsSubclassOf(typeof(IILRComponent)))
+                    {
+                        ILRComponent v = ovalue as ILRComponent;
+                        v = EditorGUILayout.ObjectField(key, v, typeof(ILRComponent), true) as ILRComponent;
+                        if (v && v.FullName == type)
+                        {
+                            ovalue = v;
+                        }
+                        else
+                        {
+                            ovalue = null;
+                        }
+                    }
+                }
+            }
+            GUILayout.EndHorizontal();
         }
     }
 }
