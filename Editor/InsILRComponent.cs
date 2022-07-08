@@ -169,7 +169,7 @@ namespace EP.U3D.EDITOR.ILR
                                     var index = -1;
                                     if (!string.IsNullOrEmpty(label))
                                     {
-                                        var strs = label.Split("-");
+                                        var strs = label.Split('-');
                                         if (strs.Length == 2 && strs[0] == field.Key)
                                         {
                                             int.TryParse(strs[1], out index);
@@ -218,7 +218,7 @@ namespace EP.U3D.EDITOR.ILR
                                     var index = -1;
                                     if (!string.IsNullOrEmpty(label))
                                     {
-                                        var strs = label.Split("-");
+                                        var strs = label.Split('-');
                                         if (strs.Length == 2 && strs[0] == field.Key)
                                         {
                                             int.TryParse(strs[1], out index);
@@ -530,7 +530,7 @@ namespace EP.U3D.EDITOR.ILR
                                         var index = -1;
                                         if (!string.IsNullOrEmpty(label))
                                         {
-                                            var strs = label.Split("-");
+                                            var strs = label.Split('-');
                                             if (strs.Length == 2 && strs[0] == field.Key)
                                             {
                                                 int.TryParse(strs[1], out index);
@@ -553,7 +553,7 @@ namespace EP.U3D.EDITOR.ILR
                                         var index = -1;
                                         if (!string.IsNullOrEmpty(label))
                                         {
-                                            var strs = label.Split("-");
+                                            var strs = label.Split('-');
                                             if (strs.Length == 2 && strs[0] == field.Key)
                                             {
                                                 int.TryParse(strs[1], out index);
