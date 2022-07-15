@@ -454,6 +454,7 @@ namespace EP.U3D.EDITOR.ILR
                         mReflects.Clear();
                         mInstance.FullName = mType.FullName;
                         var ffields = mType.GetFields();
+                        object fobject = null; // 用于获取字段初始值
                         foreach (var ffield in ffields)
                         {
                             if (ffield.GetCustomAttribute<NonSerializedAttribute>() != null) continue;
@@ -462,11 +463,13 @@ namespace EP.U3D.EDITOR.ILR
                             {
                                 mReflects.Add(ffield.Name, ffield.FieldType.FullName);
                                 var ret = mInstance.Fields.Find((ele) => { return ele.Key == ffield.Name; });
+                                var isnew = false;
                                 if (ret == null)
                                 {
                                     ret = new ILRComponent.Field();
                                     ret.Key = ffield.Name;
                                     mInstance.Fields.Add(ret);
+                                    isnew = true;
                                 }
                                 var type = ffield.FieldType.FullName;
                                 var btarray = false;
@@ -498,6 +501,58 @@ namespace EP.U3D.EDITOR.ILR
                                 ret.BTArray = btarray;
                                 ret.BTList = btlist;
                                 ret.BLBValue = blbvalue;
+                                // [20220715]: 字段初始化赋值
+                                if (isnew && !btarray && !btlist)
+                                {
+                                    if (fobject == null) fobject = Activator.CreateInstance(mType);
+                                    if (fobject != null)
+                                    {
+                                        if (type == "System.Int32")
+                                        {
+                                            ret.BValue = BitConverter.GetBytes((int)ffield.GetValue(fobject));
+                                        }
+                                        else if (type == "System.Int64")
+                                        {
+                                            ret.BValue = BitConverter.GetBytes((long)ffield.GetValue(fobject));
+                                        }
+                                        else if (type == "System.Single")
+                                        {
+                                            ret.BValue = BitConverter.GetBytes((float)ffield.GetValue(fobject));
+                                        }
+                                        else if (type == "System.Double")
+                                        {
+                                            ret.BValue = BitConverter.GetBytes((double)ffield.GetValue(fobject));
+                                        }
+                                        else if (type == "System.Boolean")
+                                        {
+                                            ret.BValue = BitConverter.GetBytes((bool)ffield.GetValue(fobject));
+                                        }
+                                        else if (type == "UnityEngine.Vector2")
+                                        {
+                                            ret.BValue = Helper.StructToByte((Vector2)ffield.GetValue(fobject));
+                                        }
+                                        else if (type == "UnityEngine.Vector3")
+                                        {
+                                            ret.BValue = Helper.StructToByte((Vector3)ffield.GetValue(fobject));
+                                        }
+                                        else if (type == "UnityEngine.Vector4")
+                                        {
+                                            ret.BValue = Helper.StructToByte((Vector4)ffield.GetValue(fobject));
+                                        }
+                                        else if (type == "UnityEngine.Color")
+                                        {
+                                            ret.BValue = Helper.StructToByte((Color)ffield.GetValue(fobject));
+                                        }
+                                        else if (type == "System.String")
+                                        {
+                                            ret.BValue = Encoding.UTF8.GetBytes((string)ffield.GetValue(fobject));
+                                        }
+                                        else if (ffield.FieldType.IsEnum)
+                                        {
+                                            ret.BValue = BitConverter.GetBytes((int)ffield.GetValue(fobject));
+                                        }
+                                    }
+                                }
                             }
                         }
                         for (int i = 0; i < mInstance.Fields.Count;)
