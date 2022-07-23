@@ -134,6 +134,7 @@ namespace EP.U3D.EDITOR.ILR
                 var ilrs = srcs.FindAll(f => f.Contains(prefix) && f.EndsWith(".cs"));
                 var mainDll = Path.Combine(targetPath, "main" + Constants.ILR_BUNDLE_FILE_EXTENSION);
                 BuildByRoslyn(dlls.ToArray(), ilrs.ToArray(), mainDll, false, false);
+                Helper.SaveFile(mainDll, LIBRARY.BASE.Helper.EncryptBytes(Helper.OpenFile(mainDll)));
             }
             catch (Exception e)
             {
